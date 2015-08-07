@@ -11,12 +11,11 @@ namespace StartHidden
 {
   public partial class Form1 : Form
   {
-    private static readonly string _programFullname = Application.ExecutablePath;
-    private static readonly string _programName = Path.GetFileName(_programFullname).Replace(".EXE",".exe");
+    private static readonly string _exeName = Path.GetFileName(Environment.GetCommandLineArgs()[0]);
 
     private static readonly string _logFullname = Path.Combine(
       Environment.ExpandEnvironmentVariables("%TEMP%"),
-      Path.GetFileNameWithoutExtension(_programName) + ".log");
+      Path.GetFileNameWithoutExtension(_exeName) + ".log");
     
     public Form1()
     {
@@ -25,46 +24,46 @@ namespace StartHidden
 
     private void Form1_Load(object sender, EventArgs e)
     {
-      LogWriteLine("{0} - jorgie@missouri.edu", _programName);
+      LogWriteLine("StartHidden - jorgie@missouri.edu ({0})", _exeName);
       LogWriteLine("START: " + DateTime.Now.ToString("s").Replace("T", " @ "));
       LogWriteLine("EXE: " + Application.ExecutablePath);
-      LogWriteLine("CDD:  " + Environment.CurrentDirectory);
+      LogWriteLine("CD:  " + Environment.CurrentDirectory);
 
       string[] args = Environment.GetCommandLineArgs();
 
       if (args.Length < 2)
+      {
         LogWriteLine("No paramaters found.");
-      else  {
-        string cmd = args[1];
-        string rest = "";
-
-        if (cmd.Equals("?") || cmd.Equals("/?") || cmd.Equals("/h"))
-        {
-          string msg = string.Format( 
-            "Just pass a command to run on the command line:\n\n" +
-            "{0} c:\\path\\program.exe opt1 opt2\n\n" +
-            "LOG: {1}",
-            _programName,
-            _logFullname
-          );
-          MessageBox.Show(msg,"Using ShowHidden");
-          LogWriteLine();
-          Environment.Exit(0);
-        }
-
-        if (args.Length > 1)
-          for (int i = 2; i < args.Length; i++)
-          {
-            if (Regex.IsMatch(args[i], @"\W"))
-              rest += string.Format(" \"{0}\"", args[i]);
-            else rest += " " + args[i];
-          }
-
-        LogWriteLine("CMD: {0}\r\nOPT: [{1}]", cmd, rest);
-
-        if (!cmd.ToLower().Contains("!debug"))
-          StartProcessHidden(cmd, rest);
+        Environment.Exit(0);
       }
+
+      string cmd = args[1];
+
+      if (cmd.Equals("?") || cmd.Equals("/?") || cmd.Equals("/h"))
+      {
+        string msg = string.Format(
+          "Just pass a command to run on the command line:\n\n" +
+          "{0} c:\\path\\program.exe opt1 opt2\n\n" +
+          "LOG: {1}",
+          _exeName,
+          _logFullname
+        );
+        MessageBox.Show(msg, "Using StartHidden");
+        LogWriteLine(msg);
+        Environment.Exit(0);
+      }
+
+      string options = "";
+
+      if (args.Length > 2)
+      {
+        int index = Environment.GetCommandLineArgs()[0].Length + Environment.GetCommandLineArgs()[1].Length + 3;
+        options = Environment.CommandLine.Substring(index);
+      }
+
+      LogWriteLine("CMD: {0}\r\nOPT: [{1}]", cmd, options);
+
+      StartProcessHidden(cmd, options);
 
       LogWriteLine();
 
@@ -81,35 +80,21 @@ namespace StartHidden
       Process p = new Process();
       p.StartInfo = psi;
 
-      string msg = "";
       try { p.Start(); }
       catch (System.Exception se)
       {
-        msg = "Error: " + se.Message;
-        if (se.InnerException != null)
-          msg += "\r\n" + se.InnerException.Message;
-        LogWrite(msg);
+        LogWriteLine("Error: " + se.Message);
+        if (se.InnerException != null) LogWriteLine(se.InnerException.Message);
         p = null;
       }
-
-      if (p != null)
-      {
-        LogWrite("PID: " + p.Id);
-        System.Threading.Thread.Sleep(1000);
-        if (!p.HasExited) LogWriteLine(" - still running");
-        else LogWriteLine(" - finsihed");
-      }
-
-      if(msg != "") LogWriteLine(msg);
+      if (p != null) LogWriteLine("PID: " + p.Id);
     }
 
     private void LogWriteLine() { LogWrite("\r\n"); }
 
-    private void LogWriteLine(string Message) { LogWrite(Message + "\r\n"); }
-
     private void LogWriteLine(string Message, params object[] Objects)
     {
-      LogWriteLine(string.Format(Message, Objects));
+      LogWrite(string.Format(Message, Objects) + "\r\n");
     }
 
     private void LogWrite(string Message, params object[] Objects)
